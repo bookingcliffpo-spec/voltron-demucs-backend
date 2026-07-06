@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: voltron-demucs-backend
+    env: docker
+    plan: standard
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DEMUCS_DEFAULT_MODEL
+        value: htdemucs
+      - key: MAX_FILE_MB
+        value: "100"
+      - key: MAX_DURATION_SECONDS
+        value: "600"
+      - key: JOB_TTL_SECONDS
+        value: "3600"
+      - key: PORT
+        value: "10000"
