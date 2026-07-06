@@ -20,9 +20,12 @@ COPY . .
 
 ENV DEMUCS_DEFAULT_MODEL=htdemucs
 
-# Pre-download the default model's weights at build time so the first real
-# request doesn't pay for a multi-hundred-MB download on a cold container.
-RUN python -c "from demucs.pretrained import get_model; import os; get_model(os.environ.get('DEMUCS_DEFAULT_MODEL', 'htdemucs'))"
+# Pre-download every model in the retry chain at build time so no request
+# ever pays for a runtime weight download (htdemucs_ft alone is a 4-model
+# ensemble that can be several hundred MB).
+RUN python -c "\
+from demucs.pretrained import get_model; \
+[get_model(m) for m in ['htdemucs', 'htdemucs_ft', 'mdx_extra_q']]"
 
 ENV PORT=10000
 EXPOSE 10000

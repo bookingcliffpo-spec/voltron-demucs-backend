@@ -10,6 +10,7 @@ DEMUCS_DEFAULT_MODEL = os.environ.get("DEMUCS_DEFAULT_MODEL", "htdemucs")
 MAX_FILE_MB = int(os.environ.get("MAX_FILE_MB", "100"))
 MAX_DURATION_SECONDS = int(os.environ.get("MAX_DURATION_SECONDS", "600"))
 JOB_TTL_SECONDS = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
+DEMUCS_TIMEOUT_SECONDS = int(os.environ.get("DEMUCS_TIMEOUT_SECONDS", "900"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 DEFAULT_CORS_ORIGINS = [
@@ -41,21 +42,19 @@ STEM_NAMES_2 = ["vocals", "no_vocals"]
 def model_chain(requested: str | None) -> list[str]:
     """Build the ordered list of models to try for a job.
 
-    An explicitly requested model is tried first; the rest of the standard
-    chain (used to auto-recover from OOM / weight download failures on a
-    single model) follows, minus duplicates.
+    DEMUCS_DEFAULT_MODEL always goes first: it's the only model baked into
+    the Docker image at build time (see Dockerfile), so it needs no runtime
+    download and runs fastest on a CPU-only box. The Base44 proxy always
+    asks for "htdemucs_ft" (a slower 4-model ensemble) by default, which
+    would otherwise always run first and eat most of the time budget before
+    ever falling back to the fast path. The requested model still gets a
+    turn — just after the pre-cached default rather than before it.
     """
     requested = (requested or "").strip()
-    if requested and requested != "auto":
-        first = requested
-    else:
-        first = DEMUCS_DEFAULT_MODEL
-    chain = [first] + [m for m in MODEL_CHAIN_BASE if m != first]
-    # de-dupe while preserving order
-    seen = set()
-    ordered = []
-    for m in chain:
-        if m not in seen:
-            seen.add(m)
-            ordered.append(m)
-    return ordered
+    chain = [DEMUCS_DEFAULT_MODEL]
+    if requested and requested not in ("auto", DEMUCS_DEFAULT_MODEL):
+        chain.append(requested)
+    for m in MODEL_CHAIN_BASE:
+        if m not in chain:
+            chain.append(m)
+    return chain

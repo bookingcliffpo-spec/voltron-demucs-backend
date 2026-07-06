@@ -7,6 +7,7 @@ import zipfile
 import requests
 
 from app.config import (
+    DEMUCS_TIMEOUT_SECONDS,
     MAX_DURATION_SECONDS,
     MAX_FILE_MB,
     STEM_NAMES_2,
@@ -153,7 +154,18 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
             cmd.append("--two-stems=vocals")
         cmd.append(safe_wav)
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=DEMUCS_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as e:
+            last_error = PipelineError(
+                "running_demucs",
+                f"Demucs timed out after {DEMUCS_TIMEOUT_SECONDS}s (model: {model}).",
+                technical_error=(e.stderr or b"").decode("utf-8", "ignore")[-4000:] if isinstance(e.stderr, bytes) else str(e.stderr or "")[-4000:],
+                stdout=(e.stdout or b"").decode("utf-8", "ignore")[-2000:] if isinstance(e.stdout, bytes) else str(e.stdout or "")[-2000:],
+                retryable=i < len(chain) - 1,
+            )
+            continue
+
         if result.returncode == 0:
             track_name = os.path.splitext(os.path.basename(safe_wav))[0]
             stem_dir = os.path.join(out_root, model, track_name)
