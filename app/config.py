@@ -14,6 +14,7 @@ PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 DEFAULT_CORS_ORIGINS = [
     "https://voltron-master-flow.base44.app",
+    "https://app.base44.com",
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8080",
@@ -22,6 +23,11 @@ DEFAULT_CORS_ORIGINS = [
 ]
 
 CORS_ORIGINS = DEFAULT_CORS_ORIGINS + _env_list("EXTRA_CORS_ORIGINS")
+
+# Also match any Base44 editor/preview/published subdomain (e.g. the editor
+# runs on app.base44.com, published apps get a *.base44.app subdomain, and
+# Base44 may assign other preview subdomains we can't fully enumerate).
+CORS_ORIGIN_REGEX = r"^https://([a-zA-Z0-9-]+\.)*base44\.(app|com)$"
 
 MODEL_CHAIN_BASE = ["htdemucs_ft", "htdemucs", "mdx_extra_q"]
 AVAILABLE_MODELS = ["htdemucs_ft", "htdemucs", "mdx_extra_q", "hdemucs_mmi"]

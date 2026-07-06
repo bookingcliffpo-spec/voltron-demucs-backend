@@ -9,7 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.config import CORS_ORIGINS, MAX_FILE_MB, PUBLIC_BASE_URL, WORK_ROOT, AVAILABLE_MODELS
+from app.config import CORS_ORIGIN_REGEX, CORS_ORIGINS, MAX_FILE_MB, PUBLIC_BASE_URL, WORK_ROOT, AVAILABLE_MODELS
 from app.jobs import jobs
 from app.pipeline import run_pipeline
 
@@ -18,6 +18,7 @@ app = FastAPI(title="voltron-demucs-backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
