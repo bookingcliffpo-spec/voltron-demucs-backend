@@ -143,6 +143,7 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
     stem_names = STEM_NAMES_2 if job.mode == "2stems" else STEM_NAMES_4
     out_root = os.path.join(job.temp_dir, "separated")
 
+    attempts: list[str] = []
     last_error: PipelineError | None = None
     for i, model in enumerate(chain):
         job.stage = "running_demucs"
@@ -157,11 +158,12 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=DEMUCS_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired as e:
+            stderr = (e.stderr or b"").decode("utf-8", "ignore") if isinstance(e.stderr, bytes) else str(e.stderr or "")
+            attempts.append(f"[{model}] TIMEOUT after {DEMUCS_TIMEOUT_SECONDS}s: {stderr[-1000:]}")
             last_error = PipelineError(
                 "running_demucs",
                 f"Demucs timed out after {DEMUCS_TIMEOUT_SECONDS}s (model: {model}).",
-                technical_error=(e.stderr or b"").decode("utf-8", "ignore")[-4000:] if isinstance(e.stderr, bytes) else str(e.stderr or "")[-4000:],
-                stdout=(e.stdout or b"").decode("utf-8", "ignore")[-2000:] if isinstance(e.stdout, bytes) else str(e.stdout or "")[-2000:],
+                technical_error="\n---\n".join(attempts)[-6000:],
                 retryable=i < len(chain) - 1,
             )
             continue
@@ -178,20 +180,22 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
                 else:
                     missing.append(stem)
             if missing:
+                attempts.append(f"[{model}] missing stems {missing}: {result.stderr[-1000:]}")
                 last_error = PipelineError(
                     "validating_outputs",
                     f"Demucs finished but stems were missing: {', '.join(missing)}.",
-                    technical_error=result.stderr[-4000:],
+                    technical_error="\n---\n".join(attempts)[-6000:],
                     stdout=result.stdout[-2000:],
                     retryable=True,
                 )
                 continue
             return model, stems
 
+        attempts.append(f"[{model}] exit={result.returncode}: {result.stderr[-1500:]}")
         last_error = PipelineError(
             "running_demucs",
             f"Demucs failed during model inference (model: {model}).",
-            technical_error=result.stderr[-4000:],
+            technical_error="\n---\n".join(attempts)[-6000:],
             stdout=result.stdout[-2000:],
             retryable=i < len(chain) - 1,
         )
