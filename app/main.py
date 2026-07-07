@@ -59,6 +59,26 @@ def health():
     }
 
 
+def _cgroup_memory() -> dict:
+    def read_int(path):
+        try:
+            with open(path) as f:
+                val = f.read().strip()
+            return None if val == "max" else int(val)
+        except (OSError, ValueError):
+            return None
+
+    limit = read_int("/sys/fs/cgroup/memory.max")
+    current = read_int("/sys/fs/cgroup/memory.current")
+    if limit is None and current is None:
+        limit = read_int("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+        current = read_int("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+    return {
+        "limit_mb": round(limit / 1e6, 1) if limit else None,
+        "current_mb": round(current / 1e6, 1) if current else None,
+    }
+
+
 @app.get("/api/diagnostics")
 def diagnostics():
     disk = shutil.disk_usage(WORK_ROOT)
@@ -70,6 +90,7 @@ def diagnostics():
             "used_gb": round(disk.used / 1e9, 2),
             "free_gb": round(disk.free / 1e9, 2),
         },
+        "memory": _cgroup_memory(),
         "available_models": AVAILABLE_MODELS,
         "cors_origins": CORS_ORIGINS,
         "active_jobs": jobs.count_active(),
