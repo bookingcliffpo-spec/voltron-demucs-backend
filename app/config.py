@@ -30,8 +30,19 @@ CORS_ORIGINS = DEFAULT_CORS_ORIGINS + _env_list("EXTRA_CORS_ORIGINS")
 # Base44 may assign other preview subdomains we can't fully enumerate).
 CORS_ORIGIN_REGEX = r"^https://([a-zA-Z0-9-]+\.)*base44\.(app|com)$"
 
-MODEL_CHAIN_BASE = ["htdemucs_ft", "htdemucs", "mdx_extra_q"]
-AVAILABLE_MODELS = ["htdemucs_ft", "htdemucs", "mdx_extra_q", "hdemucs_mmi"]
+MODEL_CHAIN_BASE = ["htdemucs", "mdx_extra_q"]
+AVAILABLE_MODELS = ["htdemucs", "mdx_extra_q", "htdemucs_ft", "hdemucs_mmi"]
+
+# htdemucs_ft is a 4-model ensemble that needs meaningfully more RAM than a
+# single model. Confirmed live: it OOM-kills the whole container on a
+# Standard-plan box (2GB), even with demucs's own "-j 1" worker limit,
+# wiping all in-memory job state and looking like the job vanished. This
+# matches the original spec's own guidance ("Pro (4GB) for htdemucs_ft on
+# full-length tracks") — it's excluded from the automatic chain entirely
+# until the Render plan is upgraded to Pro, regardless of what a client
+# requests, since the Base44 proxy defaults every request to htdemucs_ft
+# and would otherwise crash the container on every single job.
+EXCLUDED_MODELS = {"htdemucs_ft"}
 
 WORK_ROOT = os.environ.get("WORK_ROOT", "/tmp/voltron_jobs")
 
@@ -44,15 +55,14 @@ def model_chain(requested: str | None) -> list[str]:
 
     DEMUCS_DEFAULT_MODEL always goes first: it's the only model baked into
     the Docker image at build time (see Dockerfile), so it needs no runtime
-    download and runs fastest on a CPU-only box. The Base44 proxy always
-    asks for "htdemucs_ft" (a slower 4-model ensemble) by default, which
-    would otherwise always run first and eat most of the time budget before
-    ever falling back to the fast path. The requested model still gets a
-    turn — just after the pre-cached default rather than before it.
+    download and runs fastest on a CPU-only box. The client's requested
+    model gets a turn right after, unless it's in EXCLUDED_MODELS (see
+    above) — those are silently skipped in favor of the safe chain rather
+    than crashing the container.
     """
     requested = (requested or "").strip()
     chain = [DEMUCS_DEFAULT_MODEL]
-    if requested and requested not in ("auto", DEMUCS_DEFAULT_MODEL):
+    if requested and requested not in ("auto", DEMUCS_DEFAULT_MODEL) and requested not in EXCLUDED_MODELS:
         chain.append(requested)
     for m in MODEL_CHAIN_BASE:
         if m not in chain:
