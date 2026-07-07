@@ -150,7 +150,12 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
         job.progress = 30 + int(i * (50 / max(len(chain), 1)))
         job.touch()
 
-        cmd = ["demucs", "-n", model, "-o", out_root]
+        # -j 1 keeps demucs from spawning parallel workers for each segment/
+        # sub-model — on a memory-constrained CPU box, ensemble models like
+        # htdemucs_ft (4 models) can otherwise use enough RAM simultaneously
+        # to get the whole container OOM-killed (which looks like the
+        # *server itself* silently vanishing mid-job, not a clean failure).
+        cmd = ["demucs", "-n", model, "-j", "1", "-o", out_root]
         if job.mode == "2stems":
             cmd.append("--two-stems=vocals")
         cmd.append(safe_wav)
