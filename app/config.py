@@ -60,16 +60,7 @@ def model_chain(requested: str | None) -> list[str]:
     above) — those are silently skipped in favor of the safe chain rather
     than crashing the container.
     """
-    # TEMPORARY DIAGNOSTIC: force a single model attempt, no fallback chain.
-    # Live memory instrumentation showed a real job crossing 75% of the
-    # container's 2GB limit only once it moved past the first model into a
-    # second one in the same process — this isolates whether the *first*
-    # model (htdemucs) completes cleanly on its own within budget, or
-    # whether even one model alone is too tight for this plan. Revert once
-    # that's answered.
-    return [DEMUCS_DEFAULT_MODEL]
-
-    requested = (requested or "").strip()  # noqa: F841 - unreachable, see above
+    requested = (requested or "").strip()
     chain = [DEMUCS_DEFAULT_MODEL]
     if requested and requested not in ("auto", DEMUCS_DEFAULT_MODEL) and requested not in EXCLUDED_MODELS:
         chain.append(requested)
