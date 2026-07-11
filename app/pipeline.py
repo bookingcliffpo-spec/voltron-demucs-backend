@@ -7,6 +7,7 @@ import zipfile
 import requests
 
 from app.config import (
+    DEMUCS_SEGMENT_SECONDS,
     DEMUCS_TIMEOUT_SECONDS,
     MAX_DURATION_SECONDS,
     MAX_FILE_MB,
@@ -155,7 +156,11 @@ def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
         # htdemucs_ft (4 models) can otherwise use enough RAM simultaneously
         # to get the whole container OOM-killed (which looks like the
         # *server itself* silently vanishing mid-job, not a clean failure).
-        cmd = ["demucs", "-n", model, "-j", "1", "-o", out_root]
+        # --segment chunks the track instead of loading it whole, which is
+        # what actually matters for a real multi-minute song rather than a
+        # short test clip: memory scales with segment length, not track
+        # length, once this is set.
+        cmd = ["demucs", "-n", model, "-j", "1", "--segment", str(DEMUCS_SEGMENT_SECONDS), "-o", out_root]
         if job.mode == "2stems":
             cmd.append("--two-stems=vocals")
         cmd.append(safe_wav)

@@ -11,6 +11,12 @@ MAX_FILE_MB = int(os.environ.get("MAX_FILE_MB", "100"))
 MAX_DURATION_SECONDS = int(os.environ.get("MAX_DURATION_SECONDS", "600"))
 JOB_TTL_SECONDS = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
 DEMUCS_TIMEOUT_SECONDS = int(os.environ.get("DEMUCS_TIMEOUT_SECONDS", "900"))
+# htdemucs loads the ENTIRE track into memory at once unless told to chunk
+# it. A 20s test clip fit fine; a real 3-4 min song does not on a 2GB box.
+# --segment processes the track in overlapping chunks of this many seconds,
+# keeping peak memory roughly flat regardless of track length. htdemucs was
+# trained with a 7.8s context window, so this stays at or under that.
+DEMUCS_SEGMENT_SECONDS = int(os.environ.get("DEMUCS_SEGMENT_SECONDS", "7"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 DEFAULT_CORS_ORIGINS = [
