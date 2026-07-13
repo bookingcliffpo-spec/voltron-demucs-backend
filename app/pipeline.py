@@ -10,7 +10,8 @@ import requests
 from app.config import (
     DEMUCS_SEGMENT_SECONDS,
     DEMUCS_TIMEOUT_SECONDS,
-    MAX_DURATION_SECONDS,
+    MAX_DURATION_SECONDS_2STEMS,
+    MAX_DURATION_SECONDS_4STEMS,
     MAX_FILE_MB,
     STEM_NAMES_2,
     STEM_NAMES_4,
@@ -86,14 +87,17 @@ def decode_to_safe_wav(job: Job, input_path: str) -> str:
         capture_output=True,
         text=True,
     )
+    max_duration = MAX_DURATION_SECONDS_4STEMS if job.mode == "4stems" else MAX_DURATION_SECONDS_2STEMS
     if probe.returncode == 0:
         try:
             duration = float(json.loads(probe.stdout)["format"]["duration"])
-            if duration > MAX_DURATION_SECONDS:
+            if duration > max_duration:
                 raise PipelineError(
                     "validating_file",
-                    f"Track is longer than the {MAX_DURATION_SECONDS // 60}-minute limit.",
-                    technical_error=f"duration={duration}s",
+                    f"Track is {duration:.0f}s long, which exceeds the current "
+                    f"{max_duration}s limit for {job.mode} on this server's plan. "
+                    f"Try a shorter clip, or use 2-stem mode for longer tracks.",
+                    technical_error=f"duration={duration}s mode={job.mode} limit={max_duration}s",
                     retryable=False,
                 )
         except (KeyError, ValueError, TypeError):

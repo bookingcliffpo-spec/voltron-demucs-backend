@@ -8,7 +8,18 @@ def _env_list(name: str) -> list[str]:
 
 DEMUCS_DEFAULT_MODEL = os.environ.get("DEMUCS_DEFAULT_MODEL", "htdemucs")
 MAX_FILE_MB = int(os.environ.get("MAX_FILE_MB", "100"))
-MAX_DURATION_SECONDS = int(os.environ.get("MAX_DURATION_SECONDS", "600"))
+# Real crashes on this 2GB box, with hard memory data: a 20s clip peaked
+# ~1700MB (safe); a 180s track in 4stems mode climbed past 1900MB and over
+# the 2147.5MB limit before finishing. Chunked processing (--segment) caps
+# per-inference working memory but NOT the accumulated output buffers for
+# every stem across the full track length — that scales with duration x
+# stem count regardless of segment size, and is what actually OOMs a long
+# job. Rather than let an over-budget track silently crash the whole
+# server, reject it upfront with a clear error. 4stems holds 2x the output
+# buffers of 2stems, so it gets a tighter cap. Raise these once the Render
+# plan has more RAM (Pro = 4GB per the original deployment spec).
+MAX_DURATION_SECONDS_4STEMS = int(os.environ.get("MAX_DURATION_SECONDS_4STEMS", "150"))
+MAX_DURATION_SECONDS_2STEMS = int(os.environ.get("MAX_DURATION_SECONDS_2STEMS", "300"))
 JOB_TTL_SECONDS = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
 DEMUCS_TIMEOUT_SECONDS = int(os.environ.get("DEMUCS_TIMEOUT_SECONDS", "900"))
 # htdemucs loads the ENTIRE track into memory at once unless told to chunk
