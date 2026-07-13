@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import zipfile
 
 import requests
@@ -123,7 +124,23 @@ def decode_to_safe_wav(job: Job, input_path: str) -> str:
     return safe_wav
 
 
+# This box has ~2GB RAM total — enough for exactly one demucs run at a
+# time, confirmed by real crashes when two jobs overlapped. A global lock
+# serializes all separation work server-wide; a second job simply waits
+# its turn instead of racing the first one for memory and losing both.
+_demucs_slot = threading.Lock()
+
+
 def run_demucs(job: Job, safe_wav: str) -> tuple[str, dict]:
+    job.stage = "queued_for_worker"
+    job.progress = 20
+    job.touch()
+
+    with _demucs_slot:
+        return _run_demucs_locked(job, safe_wav)
+
+
+def _run_demucs_locked(job: Job, safe_wav: str) -> tuple[str, dict]:
     job.stage = "checking_python"
     job.progress = 22
     job.touch()

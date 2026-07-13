@@ -16,7 +16,7 @@ DEMUCS_TIMEOUT_SECONDS = int(os.environ.get("DEMUCS_TIMEOUT_SECONDS", "900"))
 # --segment processes the track in overlapping chunks of this many seconds,
 # keeping peak memory roughly flat regardless of track length. htdemucs was
 # trained with a 7.8s context window, so this stays at or under that.
-DEMUCS_SEGMENT_SECONDS = int(os.environ.get("DEMUCS_SEGMENT_SECONDS", "7"))
+DEMUCS_SEGMENT_SECONDS = int(os.environ.get("DEMUCS_SEGMENT_SECONDS", "5"))
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 DEFAULT_CORS_ORIGINS = [
